@@ -1,16 +1,24 @@
 {
-  "name": "genlayer-project",
+  "name": "aidvocate",
   "type": "module",
   "private": true,
-  "workspaces": ["frontend"],
+  "workspaces": [
+    "frontend"
+  ],
   "scripts": {
     "dev": "cd frontend && npm run dev",
     "build": "cd frontend && npm run build",
     "start": "cd frontend && npm run start",
     "lint": "cd frontend && npm run lint",
-    "deploy": "genlayer deploy"
+    "deploy": "genlayer deploy",
+    "deploy:studionet": "genlayer network studionet && genlayer deploy --contract contracts/aidvocate.py",
+    "deploy:local": "genlayer network localnet && genlayer deploy --contract contracts/aidvocate.py",
+    "deploy:testnet": "genlayer deploy --rpc https://rpc-bradbury.genlayer.com"
   },
   "devDependencies": {
-    "genlayer-js": "^0.18.3"
+    "genlayer-js": "^0.28.2"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1"
   }
 }

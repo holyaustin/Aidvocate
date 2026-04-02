@@ -1,15 +1,16 @@
 "use client";
 
-import { Trophy, Medal, Award, Loader2, AlertCircle } from "lucide-react";
-import { useLeaderboard, useFootballBetsContract } from "@/lib/hooks/useFootballBets";
-import { useWallet } from "@/lib/genlayer/wallet";
+import { Trophy, Medal, Award, Loader2 } from "lucide-react";
 import { AddressDisplay } from "./AddressDisplay";
+import type { LeaderboardEntry } from "@/lib/contracts/types";
 
-export function Leaderboard() {
-  const contract = useFootballBetsContract();
-  const { data: leaderboard, isLoading, isError } = useLeaderboard();
-  const { address } = useWallet();
+interface LeaderboardProps {
+  data: LeaderboardEntry[];
+  currentAddress: string | null;
+  isLoading?: boolean;
+}
 
+export function Leaderboard({ data, currentAddress, isLoading = false }: LeaderboardProps) {
   if (isLoading) {
     return (
       <div className="brand-card p-6">
@@ -24,39 +25,7 @@ export function Leaderboard() {
     );
   }
 
-  if (!contract) {
-    return (
-      <div className="brand-card p-6">
-        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-          <Trophy className="w-5 h-5 text-accent" />
-          Leaderboard
-        </h2>
-        <div className="text-center py-8 space-y-3">
-          <AlertCircle className="w-12 h-12 mx-auto text-yellow-400 opacity-60" />
-          <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">Setup Required</p>
-            <p className="text-xs text-muted-foreground">Contract address not configured</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (isError || !leaderboard) {
-    return (
-      <div className="brand-card p-6">
-        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-          <Trophy className="w-5 h-5 text-accent" />
-          Leaderboard
-        </h2>
-        <div className="text-center py-8">
-          <p className="text-sm text-destructive">Failed to load leaderboard</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (leaderboard.length === 0) {
+  if (!data || data.length === 0) {
     return (
       <div className="brand-card p-6">
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
@@ -65,11 +34,13 @@ export function Leaderboard() {
         </h2>
         <div className="text-center py-8">
           <Trophy className="w-12 h-12 mx-auto text-muted-foreground opacity-30 mb-3" />
-          <p className="text-sm text-muted-foreground">No players yet</p>
+          <p className="text-sm text-muted-foreground">No points yet</p>
         </div>
       </div>
     );
   }
+
+  const topPlayers = data.slice(0, 10);
 
   return (
     <div className="brand-card p-6">
@@ -79,8 +50,8 @@ export function Leaderboard() {
       </h2>
 
       <div className="space-y-2">
-        {leaderboard.map((entry, index) => {
-          const isCurrentUser = address?.toLowerCase() === entry.address?.toLowerCase();
+        {topPlayers.map((entry, index) => {
+          const isCurrentUser = currentAddress?.toLowerCase() === entry.address?.toLowerCase();
           const rank = index + 1;
 
           return (
@@ -93,19 +64,11 @@ export function Leaderboard() {
             >
               {/* Rank with Icon */}
               <div className="flex-shrink-0 w-8 flex items-center justify-center">
-                {rank === 1 && (
-                  <Trophy className="w-5 h-5 text-yellow-400" />
-                )}
-                {rank === 2 && (
-                  <Medal className="w-5 h-5 text-gray-400" />
-                )}
-                {rank === 3 && (
-                  <Award className="w-5 h-5 text-amber-600" />
-                )}
+                {rank === 1 && <Trophy className="w-5 h-5 text-yellow-400" />}
+                {rank === 2 && <Medal className="w-5 h-5 text-gray-400" />}
+                {rank === 3 && <Award className="w-5 h-5 text-amber-600" />}
                 {rank > 3 && (
-                  <span className="text-sm font-bold text-muted-foreground">
-                    #{rank}
-                  </span>
+                  <span className="text-sm font-bold text-muted-foreground">#{rank}</span>
                 )}
               </div>
 
@@ -129,9 +92,7 @@ export function Leaderboard() {
               {/* Points */}
               <div className="flex-shrink-0">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-lg font-bold text-accent">
-                    {entry.points}
-                  </span>
+                  <span className="text-lg font-bold text-accent">{entry.points}</span>
                   <span className="text-xs text-muted-foreground">pts</span>
                 </div>
               </div>
@@ -139,14 +100,6 @@ export function Leaderboard() {
           );
         })}
       </div>
-
-      {leaderboard.length > 10 && (
-        <div className="mt-4 pt-4 border-t border-white/10">
-          <p className="text-xs text-center text-muted-foreground">
-            Showing top {Math.min(10, leaderboard.length)} players
-          </p>
-        </div>
-      )}
     </div>
   );
 }

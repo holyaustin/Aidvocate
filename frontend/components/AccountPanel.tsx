@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { User, LogOut, AlertCircle, ExternalLink } from "lucide-react";
+import { useState, useEffect } from "react";
+import { User, LogOut, AlertCircle, ExternalLink, Scale } from "lucide-react";
 import { useWallet } from "@/lib/genlayer/wallet";
-import { usePlayerPoints } from "@/lib/hooks/useFootballBets";
+import { usePlayerPoints } from "@/lib/hooks/useAidvocate";
 import { success, error, userRejected } from "@/lib/utils/toast";
 import { AddressDisplay } from "./AddressDisplay";
 import { Button } from "./ui/button";
@@ -74,11 +74,8 @@ export function AccountPanel() {
       setIsSwitching(true);
       setConnectionError("");
       await switchWalletAccount();
-      // Keep modal open to show new account info
     } catch (err: any) {
       console.error("Failed to switch account:", err);
-
-      // Don't show error if user cancelled
       if (!err.message?.includes("rejected")) {
         setConnectionError(err.message || "Failed to switch account");
         error("Failed to switch account", {
@@ -104,11 +101,9 @@ export function AccountPanel() {
         </DialogTrigger>
         <DialogContent className="brand-card border-2">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">
-              Connect to GenLayer
-            </DialogTitle>
+            <DialogTitle className="text-2xl font-bold">Connect to Aidvocate</DialogTitle>
             <DialogDescription>
-              Connect your MetaMask wallet to start betting
+              Connect your MetaMask wallet to start using AI-powered dispute resolution
             </DialogDescription>
           </DialogHeader>
 
@@ -132,13 +127,6 @@ export function AccountPanel() {
                   <ExternalLink className="w-5 h-5 mr-2" />
                   Install MetaMask
                 </Button>
-
-                <div className="p-4 rounded-lg bg-muted/10 border border-muted/20">
-                  <p className="text-xs text-muted-foreground">
-                    After installing MetaMask, refresh this page and click
-                    &quot;Connect Wallet&quot; again.
-                  </p>
-                </div>
               </>
             ) : (
               <>
@@ -159,17 +147,6 @@ export function AccountPanel() {
                     <AlertDescription>{connectionError}</AlertDescription>
                   </Alert>
                 )}
-
-                <div className="p-4 rounded-lg bg-muted/10 border border-muted/20">
-                  <p className="text-xs text-muted-foreground">
-                    This will open MetaMask and prompt you to:
-                  </p>
-                  <ol className="text-xs text-muted-foreground list-decimal list-inside mt-2 space-y-1">
-                    <li>Connect your wallet to this application</li>
-                    <li>Add the GenLayer network to MetaMask</li>
-                    <li>Switch to the GenLayer network</li>
-                  </ol>
-                </div>
               </>
             )}
           </div>
@@ -184,7 +161,7 @@ export function AccountPanel() {
       <div className="flex items-center gap-4">
         <div className="brand-card px-4 py-2 flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <User className="w-4 h-4 text-accent" />
+            <Scale className="w-4 h-4 text-accent" />
             <AddressDisplay address={address} maxLength={12} />
           </div>
           <div className="h-4 w-px bg-white/10" />
@@ -203,9 +180,7 @@ export function AccountPanel() {
 
       <DialogContent className="brand-card border-2">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">
-            Wallet Details
-          </DialogTitle>
+          <DialogTitle className="text-2xl font-bold">Wallet Details</DialogTitle>
           <DialogDescription>
             Your connected MetaMask wallet information
           </DialogDescription>
@@ -220,6 +195,7 @@ export function AccountPanel() {
           <div className="brand-card p-4 space-y-2">
             <p className="text-sm text-muted-foreground">Your Points</p>
             <p className="text-2xl font-bold text-accent">{points}</p>
+            <p className="text-xs text-muted-foreground">Earn points by winning disputes</p>
           </div>
 
           <div className="brand-card p-4 space-y-2">
@@ -251,14 +227,6 @@ export function AccountPanel() {
             </Alert>
           )}
 
-          {connectionError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{connectionError}</AlertDescription>
-            </Alert>
-          )}
-
           <div className="mt-6 pt-4 border-t border-white/10 space-y-3">
             <Button
               onClick={handleSwitchAccount}
@@ -279,14 +247,6 @@ export function AccountPanel() {
               <LogOut className="w-4 h-4 mr-2" />
               Disconnect Wallet
             </Button>
-          </div>
-
-          <div className="p-4 rounded-lg bg-muted/10 border border-muted/20">
-            <p className="text-xs text-muted-foreground">
-              Use &quot;Switch Account&quot; to select a different MetaMask
-              account. Use &quot;Disconnect&quot; to remove this site from
-              MetaMask.
-            </p>
           </div>
         </div>
       </DialogContent>

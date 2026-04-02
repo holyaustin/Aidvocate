@@ -2,274 +2,232 @@
 
 from genlayer import *
 import json
-import typing
-from dataclasses import dataclass
-from enum import Enum
 
-class DisputeStatus(Enum):
-    PENDING = 0      # Waiting for AI validation
-    UNDER_REVIEW = 1 # Validators are evaluating
-    RESOLVED = 2     # Final decision made
-    APPEALED = 3     # Under expanded review
-
-class Resolution(Enum):
-    PLAINTIFF_WINS = 0
-    DEFENDANT_WINS = 1
-    NOT_RESOLVED = 2
-
-@dataclass
-class Dispute:
-    id: u256
-    plaintiff: str
-    defendant: str
-    amount: u256                      # GEN amount in dispute (wei)
-    evidence_cid: str                 # IPFS CID for aggregated evidence
-    description: str
-    status: DisputeStatus
-    resolution: Resolution
-    created_at: u256
-    resolved_at: u256
-    appeal_deadline: u256
-    validator_count: u256
-
-@dataclass
-class Evidence:
-    cid: str
-    evidence_type: str                # "text", "image", "document"
-    description: str
-    timestamp: u256
-    submitter: str
 
 class Aidvocate(gl.Contract):
-    # Persistent storage
-    disputes: DynArray[Dispute]
-    dispute_evidence: TreeMap[u256, DynArray[Evidence]]
+    # All storage fields - simple types only
+    # These are auto-initialized to empty TreeMap when contract is created
+    disputes: TreeMap[str, str]  # JSON string storage
+    evidence: TreeMap[str, str]  # dispute_id -> evidence_json
+    points: TreeMap[Address, u256]
     next_id: u256
-    
+    total_disputes: u256
+
     def __init__(self):
-        """Initialize the contract with empty state"""
-        self.disputes = DynArray()
-        self.dispute_evidence = TreeMap()
-        self.next_id = 0
-    
+        # DO NOT assign to storage fields in __init__
+        # They are automatically initialized
+        # Just leave them as is - they're already empty TreeMaps
+        pass
+
+    def _get_winner_from_ai(self, dispute_data: dict) -> dict:
+        """Get AI decision on dispute"""
+        def get_evaluation():
+            evidence_url = f"https://apricot-accepted-felidae-89.mypinata.cloud/ipfs/{dispute_data['evidence_cid']}"
+            
+            try:
+                web_data = gl.nondet.web.render(evidence_url, mode="text")
+            except:
+                web_data = "Could not retrieve evidence"
+            
+            prompt = f"""
+You are an impartial arbitrator. Analyze this dispute:
+
+Plaintiff: {dispute_data['plaintiff']}
+Defendant: {dispute_data['defendant']}
+Amount: {dispute_data['amount']} GEN
+Description: {dispute_data['description']}
+
+Evidence:
+{web_data[:2000]}
+
+Decide who should win. Respond with JSON:
+{{"winner": 1 or 2, "confidence": 0-100, "reasoning": "explanation"}}
+"""
+            result = gl.nondet.exec_prompt(prompt, response_format="json")
+            cleaned = result.replace("```json", "").replace("```", "").strip()
+            return json.loads(cleaned)
+        
+        return gl.eq_principle.strict_eq(get_evaluation)
+
     @gl.public.write.payable
-    def create_dispute(self, defendant: str, description: str, evidence_cid: str) -> u256:
-        """
-        Create a new dispute with escrowed funds
-        Args:
-            defendant: Address of the defendant
-            description: Description of the dispute
-            evidence_cid: IPFS CID of initial evidence
-        Returns:
-            dispute_id: The ID of the created dispute
-        """
-        # Validate inputs
-        assert gl.msg.value > 0, "Must deposit GEN to dispute"
-        assert len(description) > 0, "Description required"
-        assert len(evidence_cid) > 0, "Evidence required"
+    def create_dispute(
+        self,
+        defendant: str,
+        description: str,
+        evidence_cid: str
+    ) -> str:
+        # Use gl.message, not gl.msg
+        if gl.message.value <= 0:
+            raise gl.vm.UserError("Must deposit GEN tokens")
+        if len(defendant) == 0:
+            raise gl.vm.UserError("Defendant address required")
+        if len(description) == 0:
+            raise gl.vm.UserError("Description required")
+        if len(evidence_cid) == 0:
+            raise gl.vm.UserError("Evidence CID required")
         
-        dispute_id = self.next_id
-        dispute = Dispute(
-            id=dispute_id,
-            plaintiff=gl.msg.sender,
-            defendant=defendant,
-            amount=gl.msg.value,
-            evidence_cid=evidence_cid,
-            description=description,
-            status=DisputeStatus.PENDING,
-            resolution=Resolution.NOT_RESOLVED,
-            created_at=gl.block.timestamp,
-            resolved_at=0,
-            appeal_deadline=0,
-            validator_count=5  # Start with 5 validators (Optimistic Democracy)
-        )
+        sender = gl.message.sender
+        dispute_id = f"{sender.as_hex}_{self.next_id}"
         
-        self.disputes.append(dispute)
-        self.dispute_evidence[dispute_id] = DynArray()
+        dispute_data = {
+            "id": dispute_id,
+            "plaintiff": sender.as_hex,
+            "defendant": defendant,
+            "amount": str(gl.message.value),
+            "evidence_cid": evidence_cid,
+            "description": description,
+            "status": 0,  # PENDING
+            "resolution": 0,  # NOT_RESOLVED
+            "created_at": str(gl.block.timestamp),
+            "resolved_at": "0",
+            "appeal_deadline": "0",
+            "confidence": 0
+        }
+        
+        self.disputes[dispute_id] = json.dumps(dispute_data)
         self.next_id += 1
+        self.total_disputes += 1
         
-        # Trigger initial AI evaluation
-        self._evaluate_dispute(dispute_id)
+        # Trigger AI resolution
+        self._resolve_dispute(dispute_id)
         
         return dispute_id
-    
+
     @gl.public.write
-    def submit_evidence(self, dispute_id: u256, cid: str, evidence_type: str, description: str):
-        """
-        Submit additional evidence for a dispute
-        """
-        dispute = self.disputes[dispute_id]
-        assert dispute.plaintiff == gl.msg.sender or dispute.defendant == gl.msg.sender, "Not party to dispute"
-        assert dispute.status == DisputeStatus.UNDER_REVIEW, "Dispute not under review"
+    def submit_evidence(self, dispute_id: str, cid: str, evidence_type: str, description: str) -> None:
+        if dispute_id not in self.disputes:
+            raise gl.vm.UserError("Dispute not found")
         
-        evidence = Evidence(
-            cid=cid,
-            evidence_type=evidence_type,
-            description=description,
-            timestamp=gl.block.timestamp,
-            submitter=gl.msg.sender
-        )
+        dispute = json.loads(self.disputes[dispute_id])
+        if dispute["plaintiff"] != gl.message.sender.as_hex and dispute["defendant"] != gl.message.sender.as_hex:
+            raise gl.vm.UserError("Not a party to this dispute")
         
-        self.dispute_evidence[dispute_id].append(evidence)
+        if dispute["status"] != 1:  # UNDER_REVIEW
+            raise gl.vm.UserError("Dispute not under review")
         
-        # Update aggregated evidence CID (using latest evidence as representative for simplicity)
-        dispute.evidence_cid = cid
-        self.disputes[dispute_id] = dispute
+        # Store evidence
+        evidence_key = f"{dispute['plaintiff']}_{dispute_id}"
+        if evidence_key not in self.evidence:
+            self.evidence[evidence_key] = "[]"
         
-        # Re-evaluate with new evidence
-        self._evaluate_dispute(dispute_id)
-    
+        evidence_list = json.loads(self.evidence[evidence_key])
+        evidence_list.append({
+            "cid": cid,
+            "type": evidence_type,
+            "description": description,
+            "timestamp": str(gl.block.timestamp),
+            "submitter": gl.message.sender.as_hex
+        })
+        self.evidence[evidence_key] = json.dumps(evidence_list)
+        
+        # Update dispute with new evidence
+        dispute["evidence_cid"] = cid
+        self.disputes[dispute_id] = json.dumps(dispute)
+        
+        # Re-evaluate
+        self._resolve_dispute(dispute_id)
+
     @gl.public.write
-    def appeal(self, dispute_id: u256):
-        """
-        Appeal a resolved dispute - triggers expanded validator set (1000)
-        """
-        dispute = self.disputes[dispute_id]
-        assert dispute.status == DisputeStatus.RESOLVED, "Not resolved"
-        assert gl.block.timestamp < dispute.appeal_deadline, "Appeal deadline passed"
-        assert gl.msg.sender == dispute.plaintiff or gl.msg.sender == dispute.defendant, "Not party"
+    def appeal(self, dispute_id: str) -> None:
+        if dispute_id not in self.disputes:
+            raise gl.vm.UserError("Dispute not found")
         
-        dispute.status = DisputeStatus.APPEALED
-        dispute.validator_count = 1000  # Expand to full validator set
-        self.disputes[dispute_id] = dispute
+        dispute = json.loads(self.disputes[dispute_id])
+        if dispute["status"] != 2:  # RESOLVED
+            raise gl.vm.UserError("Only resolved disputes can be appealed")
         
-        # Re-evaluate with expanded validators
-        self._evaluate_dispute(dispute_id)
-    
-    def _evaluate_dispute(self, dispute_id: u256):
-        """
-        Internal method to evaluate a dispute using AI consensus
-        This is where the Equivalence Principle is applied
-        """
-        dispute = self.disputes[dispute_id]
-        dispute.status = DisputeStatus.UNDER_REVIEW
-        self.disputes[dispute_id] = dispute
+        if int(dispute["appeal_deadline"]) < gl.block.timestamp:
+            raise gl.vm.UserError("Appeal deadline passed")
         
-        # Define the non-deterministic block for AI evaluation
-        def evaluate_nondet() -> str:
-            # Fetch evidence from IPFS via web connectivity
-            evidence_url = f"https://gateway.pinata.cloud/ipfs/{dispute.evidence_cid}"
-            evidence_data = gl.nondet.web.get(evidence_url)
-            evidence_text = evidence_data.body.decode("utf-8")
-            
-            # Construct the evaluation prompt
-            prompt = f"""
-You are an impartial arbitrator in a decentralized justice system called Aidvocate.
-
-## Dispute Details
-**Plaintiff**: {dispute.plaintiff}
-**Defendant**: {dispute.defendant}
-**Amount in Dispute**: {dispute.amount} GEN
-
-**Description**:
-{dispute.description}
-
-## Evidence
-{evidence_text[:5000]}  # Limit to 5000 chars for token efficiency
-
-## Your Task
-Analyze the evidence and determine who should win this dispute.
-
-Consider:
-1. The validity of the evidence provided
-2. The credibility of each party's claims
-3. The fairness of the outcome
-4. Any patterns of behavior or bad faith
-
-## Response Format
-Respond with ONLY a JSON object:
-{{
-    "winner": int,    // 0 for plaintiff wins, 1 for defendant wins
-    "confidence": int, // 0-100 confidence score
-    "reasoning": str  // Brief explanation of your decision
-}}
-
-It is mandatory that you respond only using the JSON format above, nothing else.
-"""
-            
-            # Execute AI inference
-            result = gl.nondet.exec_prompt(prompt)
-            
-            # Clean the result (remove markdown code blocks if present)
-            result = result.replace("```json", "").replace("```", "").strip()
-            return result
+        if gl.message.sender.as_hex != dispute["plaintiff"] and gl.message.sender.as_hex != dispute["defendant"]:
+            raise gl.vm.UserError("Not a party")
         
-        # Apply Equivalence Principle - strict equality for this use case
-        # All validators must return the exact same JSON structure
-        result_json_str = gl.eq_principle.strict_eq(evaluate_nondet)
+        dispute["status"] = 3  # APPEALED
+        self.disputes[dispute_id] = json.dumps(dispute)
         
-        # Parse and apply the result
+        self._resolve_dispute(dispute_id)
+
+    def _resolve_dispute(self, dispute_id: str) -> None:
+        if dispute_id not in self.disputes:
+            return
+        
+        dispute = json.loads(self.disputes[dispute_id])
+        dispute["status"] = 1  # UNDER_REVIEW
+        self.disputes[dispute_id] = json.dumps(dispute)
+        
         try:
-            result = json.loads(result_json_str)
-            winner = result.get("winner", 2)
+            result = self._get_winner_from_ai(dispute)
+            winner = result.get("winner", 0)
             confidence = result.get("confidence", 0)
-            reasoning = result.get("reasoning", "")
             
-            # Log for debugging (appears in GenVM logs)
-            print(f"Dispute {dispute_id} resolved: Winner={winner}, Confidence={confidence}%, Reasoning={reasoning}")
-            
-            # Update dispute state
-            if winner == 0:
-                dispute.resolution = Resolution.PLAINTIFF_WINS
-            elif winner == 1:
-                dispute.resolution = Resolution.DEFENDANT_WINS
+            if winner == 1:
+                dispute["resolution"] = 1  # PLAINTIFF_WINS
+                winner_addr = dispute["plaintiff"]
+            elif winner == 2:
+                dispute["resolution"] = 2  # DEFENDANT_WINS
+                winner_addr = dispute["defendant"]
             else:
-                # Invalid response, keep as not resolved
-                dispute.status = DisputeStatus.PENDING
-                self.disputes[dispute_id] = dispute
                 return
             
-            dispute.status = DisputeStatus.RESOLVED
-            dispute.resolved_at = gl.block.timestamp
-            dispute.appeal_deadline = gl.block.timestamp + 7 * 24 * 3600  # 7 days in seconds
+            dispute["status"] = 2  # RESOLVED
+            dispute["resolved_at"] = str(gl.block.timestamp)
+            dispute["appeal_deadline"] = str(gl.block.timestamp + 7 * 24 * 3600)
+            dispute["confidence"] = confidence
+            self.disputes[dispute_id] = json.dumps(dispute)
             
-            # Distribute funds based on resolution
-            if dispute.resolution == Resolution.PLAINTIFF_WINS:
-                # Transfer to plaintiff
-                gl.transfer(dispute.plaintiff, dispute.amount)
-                print(f"Transferring {dispute.amount} GEN to plaintiff {dispute.plaintiff}")
+            # Transfer funds
+            amount = int(dispute["amount"])
+            if winner == 1:
+                gl.transfer(Address(dispute["plaintiff"]), amount)
             else:
-                # Transfer to defendant
-                gl.transfer(dispute.defendant, dispute.amount)
-                print(f"Transferring {dispute.amount} GEN to defendant {dispute.defendant}")
+                gl.transfer(Address(dispute["defendant"]), amount)
             
-            self.disputes[dispute_id] = dispute
+            # Award points
+            current = self.points.get(Address(winner_addr), u256(0))
+            self.points[Address(winner_addr)] = current + 1
             
-        except json.JSONDecodeError as e:
-            # Handle malformed response
-            print(f"Error parsing AI response: {e}")
-            dispute.status = DisputeStatus.PENDING
-            self.disputes[dispute_id] = dispute
-    
+        except Exception:
+            dispute["status"] = 0  # PENDING
+            self.disputes[dispute_id] = json.dumps(dispute)
+
     @gl.public.view
-    def get_dispute(self, dispute_id: u256) -> Dispute:
-        """Get dispute details by ID"""
-        return self.disputes[dispute_id]
-    
+    def get_dispute(self, dispute_id: str) -> dict:
+        if dispute_id not in self.disputes:
+            raise gl.vm.UserError("Dispute not found")
+        return json.loads(self.disputes[dispute_id])
+
     @gl.public.view
-    def get_evidence(self, dispute_id: u256) -> DynArray[Evidence]:
-        """Get all evidence for a dispute"""
-        return self.dispute_evidence.get(dispute_id, DynArray())
-    
-    @gl.public.view
-    def get_disputes_by_party(self, party: str) -> DynArray[Dispute]:
-        """Get all disputes where party is plaintiff or defendant"""
+    def get_evidence(self, dispute_id: str) -> DynArray[dict]:
         result = DynArray()
-        for dispute in self.disputes:
-            if dispute.plaintiff == party or dispute.defendant == party:
+        for key in self.evidence:
+            if key.endswith(dispute_id):
+                evidence_list = json.loads(self.evidence[key])
+                for ev in evidence_list:
+                    result.append(ev)
+        return result
+
+    @gl.public.view
+    def get_disputes_by_party(self, party: str) -> DynArray[dict]:
+        result = DynArray()
+        for dispute_id in self.disputes:
+            dispute = json.loads(self.disputes[dispute_id])
+            if dispute["plaintiff"] == party or dispute["defendant"] == party:
                 result.append(dispute)
         return result
-    
+
+    @gl.public.view
+    def get_player_points(self, player_address: str) -> u256:
+        return self.points.get(Address(player_address), u256(0))
+
+    @gl.public.view
+    def get_points(self) -> dict:
+        return {k.as_hex: v for k, v in self.points.items()}
+
     @gl.public.view
     def get_stats(self) -> str:
-        """Get contract statistics"""
-        total = len(self.disputes)
-        resolved = sum(1 for d in self.disputes if d.status == DisputeStatus.RESOLVED)
-        appealed = sum(1 for d in self.disputes if d.status == DisputeStatus.APPEALED)
-        
-        return json.dumps({
-            "total_disputes": total,
-            "resolved": resolved,
-            "appealed": appealed,
-            "contract_version": "1.0.0"
-        })
+        stats = {
+            "total_disputes": int(self.total_disputes),
+            "contract_version": "1.0.0",
+            "dev_fee_rate": 20
+        }
+        return json.dumps(stats)

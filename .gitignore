@@ -22,4 +22,7 @@ __pycache__/
 /frontend/package-lock.json
 *.compiled.js
 package-lock.json
+deploy/deployScript.compiled.js
+deploy/*.js
+deploy/*.js.map
 

@@ -1,18 +1,27 @@
 /**
- * TypeScript types for GenLayer Football Betting contract
+ * TypeScript types for Aidvocate Dispute Resolution contract
  */
 
-export interface Bet {
+export interface Dispute {
   id: string;
-  game_date: string;
-  team1: string;
-  team2: string;
-  predicted_winner: string;
-  has_resolved: boolean;
-  real_winner?: string;
-  real_score?: string;
-  resolution_url?: string;
-  owner: string;
+  creator: string;
+  respondent: string;
+  description: string;
+  evidenceCid: string;
+  escrowAmount: string;
+  status: "pending" | "resolved" | "appealed" | "finalized";
+  resolution: string;
+  resolutionReason: string;
+  createdAt: string;
+  resolvedAt: string;
+  appealCount: number;
+  isAppealed: boolean;
+}
+
+export interface ContractConfig {
+  validatorFeePercent: number;
+  minEscrow: string;
+  appealCost: string;
 }
 
 export interface LeaderboardEntry {
@@ -27,7 +36,9 @@ export interface TransactionReceipt {
   [key: string]: any;
 }
 
-export interface BetFilters {
-  resolved?: boolean;
-  owner?: string;
+export interface EvidenceFile {
+  file: File;
+  cid?: string;
+  uploading?: boolean;
+  error?: string;
 }

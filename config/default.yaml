@@ -1,0 +1,4 @@
+# GenLayer Configuration
+network: testnet-bradbury
+rpc_url: https://rpc.bradbury.genlayer.com
+chain_id: 4221
