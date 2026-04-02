@@ -1,124 +1,154 @@
+// frontend/lib/contracts/Aidvocate.ts
 import { createClient } from "genlayer-js";
-import { studionet } from "genlayer-js/chains";
-import type { Dispute, ContractConfig, TransactionReceipt } from "./types";
+import { testnetBradbury, studionet } from "genlayer-js/chains";
+import type { Dispute, Evidence, ContractStats, LeaderboardEntry } from "./types";
 
 /**
- * Aidvocate - AI-Powered Dispute Resolution Oracle
- * Contract class for interacting with the GenLayer dispute resolution contract
+ * Aidvocate contract class for interacting with the GenLayer Dispute Resolution contract
  */
-class Aidvocate {
-  private contractAddress: `0x${string}`;
+export class Aidvocate {
   private client: ReturnType<typeof createClient>;
+  private address: `0x${string}`;
+  private rpcUrl: string;
 
-  constructor(
-    contractAddress: string,
-    address?: string | null,
-    studioUrl?: string
-  ) {
-    this.contractAddress = contractAddress as `0x${string}`;
-
+  constructor(contractAddress: string, account?: string | null, rpcUrl?: string) {
+    this.address = contractAddress as `0x${string}`;
+    this.rpcUrl = rpcUrl || "https://rpc-bradbury.genlayer.com";
+    
     const config: any = {
-      chain: studionet,
+      chain: testnetBradbury,
+      endpoint: this.rpcUrl,
     };
-
-    if (address) {
-      config.account = address as `0x${string}`;
+    
+    if (account) {
+      config.account = account as `0x${string}`;
     }
-
-    if (studioUrl) {
-      config.endpoint = studioUrl;
-    }
-
-    this.client = createClient(config);
-  }
-
-  updateAccount(address: string): void {
-    const config: any = {
-      chain: studionet,
-      account: address as `0x${string}`,
-    };
+    
     this.client = createClient(config);
   }
 
   /**
-   * Create a new dispute with escrow
+   * Create a new dispute
    */
   async createDispute(
-    respondent: string,
+    defendant: string,
     description: string,
-    evidenceCid: string,
-    escrowAmount: string
-  ): Promise<TransactionReceipt> {
-    const txHash = await this.client.writeContract({
-      address: this.contractAddress,
-      functionName: "create_dispute",
-      args: [respondent, description, evidenceCid],
-      value: BigInt(escrowAmount),
-    });
+    evidenceCID: string,
+    amountWei: string
+  ): Promise<{ disputeId: string; txHash: string }> {
+    try {
+      const txHash = await this.client.writeContract({
+        address: this.address,
+        functionName: "create_dispute",
+        args: [defendant, description, evidenceCID],
+        value: BigInt(amountWei),
+      });
 
-    return await this.client.waitForTransactionReceipt({
-      hash: txHash,
-      status: "ACCEPTED" as any,
-      retries: 24,
-      interval: 5000,
-    }) as TransactionReceipt;
+      const receipt = await this.client.waitForTransactionReceipt({
+        hash: txHash,
+        status: "ACCEPTED" as any,
+        retries: 30,
+        interval: 5000,
+      });
+
+      const transactionHash = receipt.hash || txHash;
+      // Generate a temporary dispute ID (in production, parse from contract events)
+      const disputeId = `0x${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      return { disputeId, txHash: transactionHash };
+    } catch (error) {
+      console.error("Error creating dispute:", error);
+      throw error;
+    }
   }
 
   /**
-   * Resolve a dispute using AI consensus
+   * Submit additional evidence
    */
-  async resolveDispute(disputeId: string): Promise<TransactionReceipt> {
-    const txHash = await this.client.writeContract({
-      address: this.contractAddress,
-      functionName: "resolve_dispute",
-      args: [disputeId],
-      value: BigInt(0),
-    });
-
-    return await this.client.waitForTransactionReceipt({
-      hash: txHash,
-      status: "ACCEPTED" as any,
-      retries: 24,
-      interval: 5000,
-    }) as TransactionReceipt;
-  }
-
-  /**
-   * Appeal a resolved dispute with new evidence
-   */
-  async appealDispute(
+  async submitEvidence(
     disputeId: string,
-    newEvidenceCid: string,
-    appealCost: string
-  ): Promise<TransactionReceipt> {
-    const txHash = await this.client.writeContract({
-      address: this.contractAddress,
-      functionName: "appeal_dispute",
-      args: [disputeId, newEvidenceCid],
-      value: BigInt(appealCost),
-    });
+    cid: string,
+    evidenceType: string,
+    description: string
+  ): Promise<string> {
+    try {
+      const txHash = await this.client.writeContract({
+        address: this.address,
+        functionName: "submit_evidence",
+        args: [disputeId, cid, evidenceType, description],
+        value: BigInt(0),
+      });
 
-    return await this.client.waitForTransactionReceipt({
-      hash: txHash,
-      status: "ACCEPTED" as any,
-      retries: 24,
-      interval: 5000,
-    }) as TransactionReceipt;
+      const receipt = await this.client.waitForTransactionReceipt({
+        hash: txHash,
+        status: "ACCEPTED" as any,
+        retries: 30,
+        interval: 5000,
+      });
+
+      return receipt.hash || txHash;
+    } catch (error) {
+      console.error("Error submitting evidence:", error);
+      throw error;
+    }
   }
 
   /**
-   * Get dispute details
+   * Appeal a dispute resolution
+   */
+  async appeal(disputeId: string): Promise<string> {
+    try {
+      const txHash = await this.client.writeContract({
+        address: this.address,
+        functionName: "appeal",
+        args: [disputeId],
+        value: BigInt(0),
+      });
+
+      const receipt = await this.client.waitForTransactionReceipt({
+        hash: txHash,
+        status: "ACCEPTED" as any,
+        retries: 30,
+        interval: 5000,
+      });
+
+      return receipt.hash || txHash;
+    } catch (error) {
+      console.error("Error appealing dispute:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get a dispute by ID
    */
   async getDispute(disputeId: string): Promise<Dispute | null> {
     try {
-      const result: any = await this.client.readContract({
-        address: this.contractAddress,
+      const dispute = await this.client.readContract({
+        address: this.address,
         functionName: "get_dispute",
         args: [disputeId],
       });
       
-      if (!result || Object.keys(result).length === 0) return null;
-      return this.parseDispute(result);
+      if (!dispute) return null;
+      
+      // Parse the dispute data
+      return {
+        id: (dispute as any).id || disputeId,
+        plaintiff: (dispute as any).plaintiff || "",
+        defendant: (dispute as any).defendant || "",
+        amount: (dispute as any).amount?.toString() || "0",
+        evidence_cid: (dispute as any).evidence_cid || "",
+        description: (dispute as any).description || "",
+        status: Number((dispute as any).status || 0),
+        resolution: Number((dispute as any).resolution || 0),
+        created_at: Number((dispute as any).created_at || 0),
+        resolved_at: Number((dispute as any).resolved_at || 0),
+        appeal_deadline: Number((dispute as any).appeal_deadline || 0),
+        validator_count: Number((dispute as any).validator_count || 5),
+        confidence_score: Number((dispute as any).confidence_score || 0),
+        owner: (dispute as any).owner || (dispute as any).plaintiff || ""
+      };
     } catch (error) {
       console.error("Error fetching dispute:", error);
       return null;
@@ -126,85 +156,184 @@ class Aidvocate {
   }
 
   /**
-   * Get all disputes for a user
+   * Get all evidence for a dispute
    */
-  async getUserDisputes(address: string | null): Promise<Dispute[]> {
-    if (!address) return [];
-    
+  async getEvidence(disputeId: string): Promise<Evidence[]> {
     try {
-      const result: any = await this.client.readContract({
-        address: this.contractAddress,
-        functionName: "get_user_disputes",
+      const evidence = await this.client.readContract({
+        address: this.address,
+        functionName: "get_evidence",
+        args: [disputeId],
+      });
+      
+      if (Array.isArray(evidence)) {
+        return evidence.map((item: any) => ({
+          cid: item.cid || "",
+          evidence_type: item.evidence_type || item.type || "",
+          description: item.description || "",
+          timestamp: Number(item.timestamp || 0),
+          submitter: item.submitter || ""
+        }));
+      }
+      return [];
+    } catch (error) {
+      console.error("Error fetching evidence:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Get all disputes for a party
+   */
+  async getDisputesByParty(party: string): Promise<Dispute[]> {
+    try {
+      const disputes = await this.client.readContract({
+        address: this.address,
+        functionName: "get_disputes_by_party",
+        args: [party],
+      });
+      
+      if (Array.isArray(disputes)) {
+        return disputes.map((item: any) => ({
+          id: item.id || "",
+          plaintiff: item.plaintiff || "",
+          defendant: item.defendant || "",
+          amount: item.amount?.toString() || "0",
+          evidence_cid: item.evidence_cid || "",
+          description: item.description || "",
+          status: Number(item.status || 0),
+          resolution: Number(item.resolution || 0),
+          created_at: Number(item.created_at || 0),
+          resolved_at: Number(item.resolved_at || 0),
+          appeal_deadline: Number(item.appeal_deadline || 0),
+          validator_count: Number(item.validator_count || 5),
+          confidence_score: Number(item.confidence_score || 0),
+          owner: item.owner || item.plaintiff || ""
+        }));
+      }
+      return [];
+    } catch (error) {
+      console.error("Error fetching disputes:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Get player points
+   */
+  async getPlayerPoints(address: string): Promise<number> {
+    try {
+      const points = await this.client.readContract({
+        address: this.address,
+        functionName: "get_player_points",
         args: [address],
       });
-      
-      if (!Array.isArray(result)) return [];
-      return result.map((d: any) => this.parseDispute(d)).filter(Boolean) as Dispute[];
+      return Number(points) || 0;
     } catch (error) {
-      console.error("Error fetching user disputes:", error);
+      console.error("Error fetching player points:", error);
+      return 0;
+    }
+  }
+
+  /**
+   * Get all points (leaderboard)
+   */
+  async getLeaderboard(): Promise<LeaderboardEntry[]> {
+    try {
+      const points: any = await this.client.readContract({
+        address: this.address,
+        functionName: "get_points",
+        args: [],
+      });
+
+      if (points instanceof Map) {
+        return Array.from(points.entries())
+          .map(([addr, pts]: [any, any]) => ({
+            address: typeof addr === 'string' ? addr : addr.as_hex || String(addr),
+            points: Number(pts),
+          }))
+          .sort((a, b) => b.points - a.points);
+      }
+      
+      if (typeof points === 'object' && points !== null) {
+        return Object.entries(points)
+          .map(([addr, pts]) => ({
+            address: addr,
+            points: Number(pts),
+          }))
+          .sort((a, b) => b.points - a.points);
+      }
+      
+      return [];
+    } catch (error) {
+      console.error("Error fetching leaderboard:", error);
       return [];
     }
   }
 
   /**
-   * Get all disputes
+   * Get contract statistics
    */
-  async getAllDisputes(): Promise<Dispute[]> {
+  async getStats(): Promise<ContractStats | null> {
     try {
-      const result: any = await this.client.readContract({
-        address: this.contractAddress,
-        functionName: "get_all_disputes",
+      const statsJson = await this.client.readContract({
+        address: this.address,
+        functionName: "get_stats",
         args: [],
       });
       
-      if (!Array.isArray(result)) return [];
-      return result.map((d: any) => this.parseDispute(d)).filter(Boolean) as Dispute[];
-    } catch (error) {
-      console.error("Error fetching all disputes:", error);
-      return [];
-    }
-  }
-
-  /**
-   * Get contract configuration
-   */
-  async getContractConfig(): Promise<ContractConfig | null> {
-    try {
-      const result: any = await this.client.readContract({
-        address: this.contractAddress,
-        functionName: "get_contract_config",
-        args: [],
-      });
+      if (!statsJson) return null;
       
+      const stats = typeof statsJson === 'string' ? JSON.parse(statsJson) : statsJson;
       return {
-        validatorFeePercent: result.validator_fee_percent,
-        minEscrow: result.min_escrow,
-        appealCost: result.appeal_cost,
+        total_disputes: Number(stats.total_disputes) || 0,
+        resolved: Number(stats.resolved) || 0,
+        appealed: Number(stats.appealed) || 0,
+        pending: Number(stats.pending) || 0,
+        contract_version: stats.contract_version || "1.0.0",
+        dev_fee_rate: Number(stats.dev_fee_rate) || 20
       };
     } catch (error) {
-      console.error("Error fetching config:", error);
+      console.error("Error fetching stats:", error);
       return null;
     }
   }
 
-  private parseDispute(data: any): Dispute | null {
-    if (!data || !data.id) return null;
-    
-    return {
-      id: data.id,
-      creator: data.creator,
-      respondent: data.respondent,
-      description: data.description,
-      evidenceCid: data.evidence_cid,
-      escrowAmount: data.escrow_amount,
-      status: data.status as "pending" | "resolved" | "appealed" | "finalized",
-      resolution: data.resolution,
-      resolutionReason: data.resolution_reason,
-      createdAt: data.created_at,
-      resolvedAt: data.resolved_at,
-      appealCount: data.appeal_count,
-      isAppealed: data.is_appealed,
+  /**
+   * Update the account for transactions
+   */
+  updateAccount(address: string): void {
+    const config: any = {
+      chain: testnetBradbury,
+      endpoint: this.rpcUrl,
+      account: address as `0x${string}`,
     };
+    this.client = createClient(config);
+  }
+
+  /**
+   * Get status text for display
+   */
+  getStatusText(status: number): string {
+    const statusMap: Record<number, string> = {
+      0: "Pending Review",
+      1: "Under Review",
+      2: "Resolved",
+      3: "Appealed"
+    };
+    return statusMap[status] || "Unknown";
+  }
+
+  /**
+   * Get resolution text for display
+   */
+  getResolutionText(resolution: number): string {
+    const resolutionMap: Record<number, string> = {
+      0: "Not Resolved",
+      1: "Plaintiff Wins",
+      2: "Defendant Wins"
+    };
+    return resolutionMap[resolution] || "Unknown";
   }
 }
 

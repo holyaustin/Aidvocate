@@ -1,16 +1,16 @@
+// frontend/app/layout.tsx
 import type { Metadata, Viewport } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import { Footer } from "@/components/Footer";
 
-// Font for body text and UI (Switzer alternative per brand guidelines)
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-body",
   display: "swap",
 });
 
-// Font for titles (Lineca alternative per brand guidelines)
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-display",
@@ -18,18 +18,12 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "GenLayer Football Market",
-  description: "AI-powered football match predictions on GenLayer blockchain. Create bets, make predictions, and compete for points.",
-  manifest: "/site.webmanifest",
-  icons: {
-    icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
-    ],
-  },
+  title: "Aidvocate - AI-Powered Dispute Resolution",
+  description: "Decentralized arbitration platform on GenLayer. AI-powered dispute resolution with Optimistic Democracy consensus.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#9B6AF6", // GenLayer brand purple
+  themeColor: "#9B6AF6",
 };
 
 export default function RootLayout({
@@ -42,6 +36,7 @@ export default function RootLayout({
       <body>
         <Providers>
           {children}
+          <Footer />
         </Providers>
       </body>
     </html>

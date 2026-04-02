@@ -1,3 +1,4 @@
+// frontend/lib/utils/pinata.ts
 import axios from 'axios';
 
 const JWT = process.env.NEXT_PUBLIC_PINATA_JWT;
@@ -31,6 +32,33 @@ export async function uploadToIPFS(file: File): Promise<string> {
 }
 
 /**
+ * Upload JSON data to IPFS
+ */
+export async function uploadJSONToIPFS(data: object): Promise<string> {
+  if (!JWT) {
+    throw new Error('Pinata JWT not configured');
+  }
+
+  try {
+    const response = await axios.post(
+      'https://api.pinata.cloud/pinning/pinJSONToIPFS',
+      data,
+      {
+        headers: {
+          'Authorization': `Bearer ${JWT}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    return response.data.IpfsHash;
+  } catch (error) {
+    console.error('Pinata JSON upload error:', error);
+    throw new Error('Failed to upload JSON to IPFS');
+  }
+}
+
+/**
  * Get content from IPFS by CID
  */
 export async function getFromIPFS(cid: string): Promise<any> {
@@ -46,6 +74,6 @@ export async function getFromIPFS(cid: string): Promise<any> {
 /**
  * Get a public gateway URL for a CID
  */
-export function getIPFSGatewayURL(cid: string): string {
+export function getIPFSUrl(cid: string): string {
   return `https://${GATEWAY}/ipfs/${cid}`;
 }

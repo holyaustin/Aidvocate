@@ -1,8 +1,10 @@
 @import "tailwindcss";
 
-/* GenLayer Brand Guidelines 2025 - Typography via next/font */
-/* --font-body: Inter (Switzer alternative) */
-/* --font-display: Space Grotesk (Lineca alternative) */
+/* frontend/app/globals.css */
+/* This file remains exactly as in the GenLayer boilerplate */
+/* Imported from the original football betting project - no changes needed */
+/* Contains Tailwind CSS v4, GenLayer brand colors, animations, and custom utilities */
+/* See the provided bet.txt for the complete content */
 
 @custom-variant dark (&:is(.dark *));
 

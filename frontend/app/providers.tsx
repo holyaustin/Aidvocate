@@ -1,3 +1,4 @@
+// frontend/app/providers.tsx
 "use client";
 
 import { useState } from "react";

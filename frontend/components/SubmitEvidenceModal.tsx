@@ -1,114 +1,81 @@
+// frontend/app/components/SubmitEvidenceModal.tsx
 "use client";
 
 import { useState } from "react";
-import { Upload, Loader2 } from "lucide-react";
+import { Upload, Loader2, X } from "lucide-react";
 import { useSubmitEvidence } from "@/lib/hooks/useAidvocate";
-import { useWallet } from "@/lib/genlayer/wallet";
-import { uploadToIPFS } from "@/lib/pinata";
-import { success, error } from "@/lib/utils/toast";
-import { Button } from "./ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
+import { uploadToIPFS } from "@/lib/utils/pinata";
+import { toast } from "sonner";
 
 interface SubmitEvidenceModalProps {
   disputeId: string;
-  isOpen?: boolean;
-  onOpenChange?: (open: boolean) => void;
 }
 
-export function SubmitEvidenceModal({ disputeId, isOpen: externalOpen, onOpenChange: externalOnOpenChange }: SubmitEvidenceModalProps) {
-  const { isConnected, address } = useWallet();
-  const { submitEvidence, isSubmitting } = useSubmitEvidence();
-  
-  const [internalOpen, setInternalOpen] = useState(false);
-  const isOpen = externalOpen !== undefined ? externalOpen : internalOpen;
-  const onOpenChange = externalOnOpenChange || setInternalOpen;
-  
+export function SubmitEvidenceModal({ disputeId }: SubmitEvidenceModalProps) {
+  const [isOpen, setIsOpen] = useState(false);
   const [cid, setCid] = useState("");
   const [evidenceType, setEvidenceType] = useState("document");
   const [description, setDescription] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const { mutate: submitEvidence, isPending: isSubmitting } = useSubmitEvidence();
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
+    
     setIsUploading(true);
     try {
       const uploadedCid = await uploadToIPFS(file);
       setCid(uploadedCid);
-      success("Evidence uploaded to IPFS!");
-    } catch (err) {
-      console.error("Upload failed:", err);
-      error("Failed to upload evidence");
+      toast.success("Evidence uploaded to IPFS!");
+    } catch (error) {
+      toast.error("Failed to upload evidence");
     } finally {
       setIsUploading(false);
     }
   };
 
   const handleSubmit = async () => {
-    if (!isConnected || !address) {
-      error("Please connect your wallet first");
-      return;
-    }
-
     if (!cid || !evidenceType || !description) {
-      error("Please fill in all fields");
+      toast.error("Please fill in all fields");
       return;
     }
-
-    try {
-      await submitEvidence({ disputeId, cid, evidenceType, description });
-      setCid("");
-      setEvidenceType("document");
-      setDescription("");
-      onOpenChange(false);
-    } catch (err: any) {
-      error(`Failed to submit evidence: ${err.message}`);
-    }
+    
+    submitEvidence({ disputeId, cid, evidenceType, description });
+    setCid("");
+    setEvidenceType("document");
+    setDescription("");
+    setIsOpen(false);
   };
 
+  if (!isOpen) {
+    return (
+      <button onClick={() => setIsOpen(true)} className="btn-primary text-sm">
+        <Upload className="w-4 h-4 mr-2" />
+        Submit Evidence
+      </button>
+    );
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Upload className="w-4 h-4 mr-2" />
-          Submit Evidence
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="brand-card border-2 sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">Submit Additional Evidence</DialogTitle>
-          <DialogDescription>
-            Upload evidence to support your case. The dispute will be re-evaluated.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 mt-4">
-          <div className="space-y-2">
-            <Label htmlFor="evidenceFile">Evidence File</Label>
-            <Input
-              id="evidenceFile"
-              type="file"
-              onChange={handleFileUpload}
-              disabled={isUploading}
-            />
-            {cid && (
-              <p className="text-xs text-green-400">
-                ✓ Uploaded: {cid.slice(0, 20)}...
-              </p>
-            )}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="brand-card w-full max-w-md p-6 relative">
+        <button onClick={() => setIsOpen(false)} className="absolute right-4 top-4 text-muted-foreground hover:text-foreground">
+          <X className="w-5 h-5" />
+        </button>
+        
+        <h3 className="text-xl font-bold mb-4">Submit Evidence</h3>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Evidence File</label>
+            <input type="file" onChange={handleFileUpload} className="w-full text-sm" disabled={isUploading} />
+            {cid && <p className="text-xs text-green-400 mt-1">✓ Uploaded: {cid.slice(0, 20)}...</p>}
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="evidenceType">Evidence Type</Label>
-            <select
-              id="evidenceType"
-              value={evidenceType}
-              onChange={(e) => setEvidenceType(e.target.value)}
-              className="w-full p-2 rounded-lg border bg-transparent"
-            >
+          
+          <div>
+            <label className="block text-sm font-medium mb-2">Evidence Type</label>
+            <select value={evidenceType} onChange={(e) => setEvidenceType(e.target.value)} className="w-full p-2 rounded-lg border bg-transparent">
               <option value="document">Document</option>
               <option value="image">Image</option>
               <option value="text">Text</option>
@@ -116,36 +83,20 @@ export function SubmitEvidenceModal({ disputeId, isOpen: externalOpen, onOpenCha
               <option value="video">Video</option>
             </select>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe this evidence..."
-              rows={3}
-              className="w-full p-2 rounded-lg border bg-transparent"
-            />
+          
+          <div>
+            <label className="block text-sm font-medium mb-2">Description</label>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe this evidence..." rows={3} className="w-full p-2 rounded-lg border bg-transparent" />
           </div>
-
-          <Button
-            onClick={handleSubmit}
-            disabled={!cid || isSubmitting || isUploading}
-            variant="gradient"
-            className="w-full"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Submitting...
-              </>
-            ) : (
-              "Submit Evidence"
-            )}
-          </Button>
+          
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => setIsOpen(false)} className="flex-1 btn-secondary">Cancel</button>
+            <button onClick={handleSubmit} disabled={!cid || isSubmitting || isUploading} className="flex-1 btn-primary disabled:opacity-50">
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Submit"}
+            </button>
+          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }

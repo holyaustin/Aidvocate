@@ -1,3 +1,7 @@
+// frontend/app/components/AddressDisplay.tsx
+// This file remains exactly as in the GenLayer boilerplate (from bet.txt)
+// Imports unchanged - displays shortened addresses with copy functionality
+
 "use client";
 
 import { useState } from "react";

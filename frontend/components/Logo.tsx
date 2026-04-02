@@ -1,12 +1,6 @@
-/**
- * GenLayer Logo Component
- * Per Brand Guidelines 2025
- *
- * Variants:
- * - "full": Strong Mark + Wordmark (for desktop/larger spaces)
- * - "mark": Strong Mark only (for mobile/compact spaces)
- * - "wordmark": Wordmark only (for specific cases)
- */
+// frontend/app/components/Logo.tsx
+// This file remains exactly as in the GenLayer boilerplate (from bet.txt)
+// Contains GenLayer logo SVG, Strong Mark, Wordmark, and variants
 
 import React from 'react';
 

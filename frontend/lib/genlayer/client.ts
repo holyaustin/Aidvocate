@@ -1,3 +1,7 @@
+// frontend/lib/genlayer/client.ts
+// This file remains exactly as in the GenLayer boilerplate (from bet.txt)
+// Contains MetaMask connection, network switching, RPC helpers
+
 "use client";
 
 import { createClient } from "genlayer-js";

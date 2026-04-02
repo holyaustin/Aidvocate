@@ -1,9 +1,10 @@
+// frontend/components/AccountPanel.tsx - Update the points hook import
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { User, LogOut, AlertCircle, ExternalLink, Scale } from "lucide-react";
 import { useWallet } from "@/lib/genlayer/wallet";
-import { usePlayerPoints } from "@/lib/hooks/useAidvocate";
+import { usePlayerPoints } from "@/lib/hooks/useAidvocate"; // Changed from useFootballBets
 import { success, error, userRejected } from "@/lib/utils/toast";
 import { AddressDisplay } from "./AddressDisplay";
 import { Button } from "./ui/button";
@@ -31,7 +32,7 @@ export function AccountPanel() {
     switchWalletAccount,
   } = useWallet();
 
-  const { data: points = 0 } = usePlayerPoints(address);
+  const { data: points = 0 } = usePlayerPoints(address); // Updated hook
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [connectionError, setConnectionError] = useState("");

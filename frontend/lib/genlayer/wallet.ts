@@ -1,10 +1,8 @@
 "use client";
 
-/**
- * Re-export wallet functionality from WalletProvider
- * This maintains backward compatibility with existing imports
- * All components that import from this file will now use shared context state
- */
+// frontend/lib/genlayer/wallet.ts
+// This file remains exactly as in the GenLayer boilerplate (from bet.txt)
+// Re-exports wallet functionality from WalletProvider
 export { useWallet, WalletProvider } from "./WalletProvider";
 export type { WalletState } from "./WalletProvider";
 

@@ -1,3 +1,7 @@
+// frontend/lib/genlayer/WalletProvider.tsx
+// This file remains exactly as in the GenLayer boilerplate (from bet.txt)
+// Contains wallet context, MetaMask event listeners, connection logic
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";

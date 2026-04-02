@@ -1,50 +1,118 @@
+// frontend/components/Navbar.tsx
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { AccountPanel } from "./AccountPanel";
-import { CreateDisputeModal } from "./CreateDisputeModal";
-import { useDisputes } from "@/lib/hooks/useAidvocate";
-import { Scale } from "lucide-react";
+import { useStats } from "@/lib/hooks/useAidvocate";
+import { Logo, LogoMark } from "./Logo";
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
-  const { data: disputes } = useDisputes();
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const { data: stats } = useStats();
 
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 20);
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      const threshold = 80;
+
+      setIsScrolled(scrollY > 20);
+      const progress = Math.min(Math.max((scrollY - 10) / threshold, 0), 1);
+      setScrollProgress(progress);
+    };
+
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const pendingCount = disputes?.filter(d => d.status === "pending").length || 0;
+  const paddingTop = Math.round(scrollProgress * 16);
+  const headerHeight = 64 - Math.round(scrollProgress * 8);
+
+  const getBorderRadius = () => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+      return Math.round(scrollProgress * 9999);
+    }
+    return 0;
+  };
+  const borderRadius = getBorderRadius();
+
+  const totalDisputes = stats?.total_disputes || 0;
+  const resolvedDisputes = stats?.resolved || 0;
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 transition-all duration-500">
-      <div className="backdrop-blur-xl border-b border-white/10 bg-black/50">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-purple-600 flex items-center justify-center">
-                <Scale className="w-5 h-5 text-white" />
+    <header
+      className="fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out"
+      style={{ paddingTop: `${paddingTop}px` }}
+    >
+      <div
+        className="transition-all duration-500 ease-out"
+        style={{
+          width: '100%',
+          maxWidth: isScrolled ? '80rem' : '100%',
+          margin: '0 auto',
+          borderRadius: `${borderRadius}px`,
+        }}
+      >
+        <div
+          className="backdrop-blur-xl border transition-all duration-500 ease-out md:rounded-none"
+          style={{
+            borderColor: `oklch(0.3 0.02 0 / ${0.4 + scrollProgress * 0.4})`,
+            background: `linear-gradient(135deg, oklch(0.18 0.01 0 / ${0.1 + scrollProgress * 0.3}) 0%, oklch(0.15 0.01 0 / ${0.05 + scrollProgress * 0.25}) 50%, oklch(0.16 0.01 0 / ${0.08 + scrollProgress * 0.27}) 100%)`,
+            borderRadius: `${borderRadius}px`,
+            borderWidth: '1px',
+            borderLeftWidth: isScrolled ? '1px' : '0px',
+            borderRightWidth: isScrolled ? '1px' : '0px',
+            borderTopWidth: isScrolled ? '1px' : '0px',
+            boxShadow: isScrolled
+              ? '0 32px 64px 0 rgba(0, 0, 0, 0.2), inset 0 1px 0 0 oklch(0.3 0.02 0 / 0.3)'
+              : 'none',
+            backdropFilter: 'blur(16px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+          }}
+        >
+          <div
+            className="px-6 transition-all duration-500 mx-auto"
+            style={{
+              maxWidth: isScrolled ? '80rem' : '112rem',
+            }}
+          >
+            <div
+              className="flex items-center justify-between transition-all duration-500"
+              style={{ height: `${headerHeight}px` }}
+            >
+              {/* Left: Logo */}
+              <div className="flex items-center gap-3">
+                <Link href="/">
+                  <LogoMark size="md" className="flex md:hidden" />
+                  <Logo size="md" className="hidden md:flex" />
+                </Link>
+                <Link href="/">
+                  <span className="text-lg md:text-xl font-bold ml-2">Aidvocate</span>
+                </Link>
               </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-white to-accent bg-clip-text text-transparent">
-                Aidvocate
-              </span>
-            </div>
 
-            {/* Center Stats */}
-            <div className="hidden md:flex items-center gap-6">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Pending Cases:</span>
-                <span className="font-bold text-accent">{pendingCount}</span>
+              {/* Center: Stats */}
+              <div className="hidden md:flex items-center gap-6 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Total Disputes:</span>
+                  <span className="text-foreground font-bold text-accent">{totalDisputes}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Resolved:</span>
+                  <span className="text-foreground font-bold text-accent">{resolvedDisputes}</span>
+                </div>
               </div>
-            </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-3">
-              <CreateDisputeModal />
-              <AccountPanel />
+              {/* Right: Actions */}
+              <div className="flex items-center gap-3">
+                <Link href="/submit">
+                  <button className="btn-primary text-sm">
+                    + New Dispute
+                  </button>
+                </Link>
+                <AccountPanel />
+              </div>
             </div>
           </div>
         </div>
