@@ -1,3 +1,4 @@
+// frontend/lib/contracts/Aidvocate.ts
 import { createClient } from "genlayer-js";
 import { testnetBradbury, studionet } from "genlayer-js/chains";
 import type { Dispute, Evidence, ContractStats, LeaderboardEntry } from "./types";

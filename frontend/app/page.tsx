@@ -1,3 +1,5 @@
+// frontend/app/page.ts
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -18,6 +20,12 @@ export default function HomePage() {
   
   const [myDisputes, setMyDisputes] = useState<Dispute[]>([]);
   const [disputesLoading, setDisputesLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Handle mounting to prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Fetch disputes from localStorage and then from contract
   useEffect(() => {
@@ -73,6 +81,53 @@ export default function HomePage() {
     }
   };
 
+  // Prevent hydration mismatch by not rendering dynamic content until mounted
+  if (!mounted) {
+    // Return a consistent server-side version
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-grow pt-20 pb-12 px-4 md:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-8 animate-fade-in">
+              <div className="inline-flex items-center gap-2 bg-accent/10 px-4 py-2 rounded-full mb-4">
+                <Scale className="w-4 h-4 text-accent" />
+                <span className="text-sm text-accent font-medium">AI-Powered Justice</span>
+              </div>
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4">
+                Aidvocate
+              </h1>
+              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
+                Decentralized dispute resolution powered by AI consensus.
+                <br />
+                Fair, transparent, and built on GenLayer.
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+              <div className="lg:col-span-8 animate-slide-up">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold">Loading...</h2>
+                  <Link href="/submit">
+                    <button className="btn-primary text-sm">+ New Dispute</button>
+                  </Link>
+                </div>
+                <div className="brand-card p-12 text-center">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto text-accent" />
+                </div>
+              </div>
+              <div className="lg:col-span-4 animate-slide-up">
+                <div className="brand-card p-12 text-center">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto text-accent" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -123,7 +178,7 @@ export default function HomePage() {
             <div className="lg:col-span-8 animate-slide-up">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-bold">
-                  {isConnected ? "Your Disputes" : "Connect Wallet to View Disputes"}
+                  {!isConnected ? "Connect Wallet to View Disputes" : "Your Disputes"}
                 </h2>
                 <Link href="/submit">
                   <button className="btn-primary text-sm">
@@ -141,7 +196,9 @@ export default function HomePage() {
                 <div className="brand-card p-12 text-center">
                   <Scale className="w-16 h-16 mx-auto text-muted-foreground opacity-30 mb-4" />
                   <p className="text-muted-foreground mb-4">
-                    {isConnected ? "You haven't created or been involved in any disputes yet." : "Connect your wallet to view your disputes."}
+                    {!isConnected 
+                      ? "Connect your wallet to view your disputes." 
+                      : "You haven't created or been involved in any disputes yet."}
                   </p>
                   {isConnected && (
                     <Link href="/submit">
@@ -160,6 +217,9 @@ export default function HomePage() {
 
             {/* Right: Leaderboard */}
             <div className="lg:col-span-4 animate-slide-up" style={{ animationDelay: "100ms" }}>
+                <h2 className="text-2xl font-bold mb-5 flex">
+                   Your Leaderboard
+                </h2>
               <Leaderboard data={leaderboard} currentAddress={address} />
             </div>
           </div>
