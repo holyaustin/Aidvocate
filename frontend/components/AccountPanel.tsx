@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { User, LogOut, AlertCircle, ExternalLink, Scale } from "lucide-react";
 import { useWallet } from "@/lib/genlayer/wallet";
-import { usePlayerPoints } from "@/lib/hooks/useAidvocate"; // Changed from useFootballBets
+import { usePlayerPoints } from "@/lib/hooks/useAidvocate"; 
 import { success, error, userRejected } from "@/lib/utils/toast";
 import { AddressDisplay } from "./AddressDisplay";
 import { Button } from "./ui/button";
@@ -174,7 +174,7 @@ export function AccountPanel() {
 
         <DialogTrigger asChild>
           <Button variant="outline" size="sm">
-            <User className="w-4 h-4" />
+            <User className="w-6 h-6" />
           </Button>
         </DialogTrigger>
       </div>
@@ -211,7 +211,7 @@ export function AccountPanel() {
               />
               <span className="text-sm">
                 {isOnCorrectNetwork
-                  ? "Connected to GenLayer"
+                  ? "Connected to GenLayer Bradbury Testnet"
                   : "Wrong Network"}
               </span>
             </div>
@@ -222,8 +222,7 @@ export function AccountPanel() {
               <AlertCircle className="h-4 w-4 text-yellow-500" />
               <AlertTitle>Network Warning</AlertTitle>
               <AlertDescription>
-                You&apos;re not on the GenLayer network. Please switch networks in
-                MetaMask or try reconnecting.
+                You&apos;re not on the GenLayer network. Please switch networks in MetaMask or try reconnecting.
               </AlertDescription>
             </Alert>
           )}

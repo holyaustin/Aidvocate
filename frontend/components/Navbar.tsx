@@ -87,9 +87,7 @@ export function Navbar() {
                   <LogoMark size="md" className="flex md:hidden" />
                   <Logo size="md" className="hidden md:flex" />
                 </Link>
-                <Link href="/">
-                  <span className="text-lg md:text-xl font-bold ml-2">Aidvocate</span>
-                </Link>
+
               </div>
 
               {/* Center: Stats */}

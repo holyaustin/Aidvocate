@@ -1,19 +1,68 @@
-// frontend/app/page.tsx
 "use client";
 
+import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { DisputeCard } from "@/components/DisputeCard";
 import { Leaderboard } from "@/components/Leaderboard";
-import { useDisputesByParty, useStats, useLeaderboard } from "@/lib/hooks/useAidvocate";
+import { useStats, useLeaderboard, useAidvocateContract } from "@/lib/hooks/useAidvocate";
 import { useWallet } from "@/lib/genlayer/wallet";
 import Link from "next/link";
-import { Scale, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { Scale, AlertCircle, CheckCircle, Clock, Loader2 } from "lucide-react";
+import type { Dispute } from "@/lib/contracts/types";
 
 export default function HomePage() {
   const { address, isConnected } = useWallet();
-  const { data: disputes = [], isLoading: disputesLoading } = useDisputesByParty(isConnected ? address : null);
+  const contract = useAidvocateContract();
   const { data: stats } = useStats();
   const { data: leaderboard = [] } = useLeaderboard();
+  
+  const [myDisputes, setMyDisputes] = useState<Dispute[]>([]);
+  const [disputesLoading, setDisputesLoading] = useState(false);
+
+  // Fetch disputes from localStorage and then from contract
+  useEffect(() => {
+    const fetchMyDisputes = async () => {
+      if (!isConnected || !address || !contract) {
+        setMyDisputes([]);
+        return;
+      }
+
+      setDisputesLoading(true);
+      try {
+        // Get dispute IDs from localStorage
+        const storedIds = localStorage.getItem('myDisputes');
+        if (!storedIds) {
+          setMyDisputes([]);
+          return;
+        }
+
+        const disputeIds = JSON.parse(storedIds);
+        if (!disputeIds.length) {
+          setMyDisputes([]);
+          return;
+        }
+
+        // Fetch each dispute individually
+        const disputes = await Promise.all(
+          disputeIds.map((id: string) => contract.getDispute(id))
+        );
+        
+        // Filter out null values and only show disputes where user is involved
+        const userDisputes = disputes.filter((d): d is Dispute => {
+          return d !== null && (d.plaintiff === address || d.defendant === address);
+        });
+        
+        setMyDisputes(userDisputes);
+      } catch (error) {
+        console.error("Error fetching disputes:", error);
+        setMyDisputes([]);
+      } finally {
+        setDisputesLoading(false);
+      }
+    };
+
+    fetchMyDisputes();
+  }, [address, isConnected, contract]);
 
   const getStatusIcon = (status: number) => {
     switch (status) {
@@ -21,16 +70,6 @@ export default function HomePage() {
       case 1: return <Clock className="w-4 h-4 text-blue-400" />;
       case 3: return <AlertCircle className="w-4 h-4 text-purple-400" />;
       default: return <Scale className="w-4 h-4 text-yellow-400" />;
-    }
-  };
-
-  const getStatusText = (status: number) => {
-    switch (status) {
-      case 0: return "Pending";
-      case 1: return "Under Review";
-      case 2: return "Resolved";
-      case 3: return "Appealed";
-      default: return "Unknown";
     }
   };
 
@@ -84,7 +123,7 @@ export default function HomePage() {
             <div className="lg:col-span-8 animate-slide-up">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-bold">
-                  {isConnected ? "Your Disputes" : "Recent Disputes"}
+                  {isConnected ? "Your Disputes" : "Connect Wallet to View Disputes"}
                 </h2>
                 <Link href="/submit">
                   <button className="btn-primary text-sm">
@@ -95,12 +134,10 @@ export default function HomePage() {
               
               {disputesLoading ? (
                 <div className="brand-card p-12 text-center">
-                  <div className="animate-pulse space-y-4">
-                    <div className="h-4 bg-gray-700 rounded w-3/4 mx-auto"></div>
-                    <div className="h-4 bg-gray-700 rounded w-1/2 mx-auto"></div>
-                  </div>
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto text-accent" />
+                  <p className="text-muted-foreground mt-2">Loading your disputes...</p>
                 </div>
-              ) : disputes.length === 0 ? (
+              ) : myDisputes.length === 0 ? (
                 <div className="brand-card p-12 text-center">
                   <Scale className="w-16 h-16 mx-auto text-muted-foreground opacity-30 mb-4" />
                   <p className="text-muted-foreground mb-4">
@@ -114,7 +151,7 @@ export default function HomePage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {disputes.map((dispute) => (
+                  {myDisputes.map((dispute) => (
                     <DisputeCard key={dispute.id} dispute={dispute} userAddress={address || undefined} />
                   ))}
                 </div>

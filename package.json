@@ -16,7 +16,7 @@
     "deploy:testnet": "genlayer deploy --rpc https://rpc-bradbury.genlayer.com"
   },
   "devDependencies": {
-    "genlayer-js": "^0.28.2"
+    "genlayer-js": "^0.28.4"
   },
   "dependencies": {
     "dotenv": "^17.3.1"

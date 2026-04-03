@@ -1,4 +1,3 @@
-// frontend/lib/contracts/Aidvocate.ts
 import { createClient } from "genlayer-js";
 import { testnetBradbury, studionet } from "genlayer-js/chains";
 import type { Dispute, Evidence, ContractStats, LeaderboardEntry } from "./types";
@@ -55,10 +54,31 @@ export class Aidvocate {
       // Generate a temporary dispute ID (in production, parse from contract events)
       const disputeId = `0x${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
+      // Store the dispute ID locally for retrieval
+      this.storeDisputeId(disputeId);
+      
       return { disputeId, txHash: transactionHash };
     } catch (error) {
       console.error("Error creating dispute:", error);
       throw error;
+    }
+  }
+
+  /**
+   * Store dispute ID in localStorage for retrieval
+   */
+  private storeDisputeId(disputeId: string): void {
+    try {
+      if (typeof window !== 'undefined') {
+        const existingIds = localStorage.getItem('myDisputes');
+        const ids = existingIds ? JSON.parse(existingIds) : [];
+        if (!ids.includes(disputeId)) {
+          ids.push(disputeId);
+          localStorage.setItem('myDisputes', JSON.stringify(ids));
+        }
+      }
+    } catch (error) {
+      console.error('Error storing dispute ID:', error);
     }
   }
 
@@ -183,8 +203,10 @@ export class Aidvocate {
   }
 
   /**
-   * Get all disputes for a party
+   * DISABLED: Get all disputes for a party - Contract has bug with DynArray
+   * TODO: Re-enable after contract fix
    */
+  /*
   async getDisputesByParty(party: string): Promise<Dispute[]> {
     try {
       const disputes = await this.client.readContract({
@@ -217,6 +239,7 @@ export class Aidvocate {
       return [];
     }
   }
+  */
 
   /**
    * Get player points
@@ -274,30 +297,37 @@ export class Aidvocate {
   /**
    * Get contract statistics
    */
-  async getStats(): Promise<ContractStats | null> {
-    try {
-      const statsJson = await this.client.readContract({
-        address: this.address,
-        functionName: "get_stats",
-        args: [],
-      });
-      
-      if (!statsJson) return null;
-      
-      const stats = typeof statsJson === 'string' ? JSON.parse(statsJson) : statsJson;
-      return {
-        total_disputes: Number(stats.total_disputes) || 0,
-        resolved: Number(stats.resolved) || 0,
-        appealed: Number(stats.appealed) || 0,
-        pending: Number(stats.pending) || 0,
-        contract_version: stats.contract_version || "1.0.0",
-        dev_fee_rate: Number(stats.dev_fee_rate) || 20
-      };
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-      return null;
-    }
+async getStats(): Promise<ContractStats | null> {
+  try {
+    console.log('📊 [Aidvocate] Fetching contract stats...');
+    console.log('   Contract address:', this.address);
+    console.log('   RPC URL:', this.rpcUrl);
+    
+    const statsJson = await this.client.readContract({
+      address: this.address,
+      functionName: "get_stats",
+      args: [],
+    });
+    
+    console.log('✅ [Aidvocate] Stats received:', statsJson);
+    
+    if (!statsJson) return null;
+    
+    const stats = typeof statsJson === 'string' ? JSON.parse(statsJson) : statsJson;
+    return {
+      total_disputes: Number(stats.total_disputes) || 0,
+      resolved: Number(stats.resolved) || 0,
+      appealed: Number(stats.appealed) || 0,
+      pending: Number(stats.pending) || 0,
+      contract_version: stats.contract_version || "1.0.0",
+      dev_fee_rate: Number(stats.dev_fee_rate) || 20
+    };
+  } catch (error) {
+    console.error('❌ [Aidvocate] Error fetching stats:', error);
+    console.error('   Error details:', error instanceof Error ? error.message : String(error));
+    return null;
   }
+}
 
   /**
    * Update the account for transactions

@@ -1,44 +1,37 @@
 # gltest.config.yaml
 # Configuration for GenLayer Test Framework
 
-# Network configuration for testing
 networks:
   testnet_bradbury:
-    rpc_url: https://rpc-bradbury.genlayer.com
-    chain_id: 4221
+    # No need to specify url - it's pre-configured[citation:3]
     accounts:
-      - "${DEPLOYER_PRIVATE_KEY}"
-    
-  studionet:
-    rpc_url: https://studio.genlayer.com/api
-    chain_id: 61999
-    accounts:
-      - "${DEPLOYER_PRIVATE_KEY}"
-    
-  localnet:
-    rpc_url: http://localhost:4000/api
-    chain_id: 61127
-    accounts:
-      - "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"  # Default localnet account
-
-# Default network to use when running tests
-default_network: studionet
-
-# Test execution settings
-test:
-  timeout: 120000  # 2 minutes
-  retries: 3
-  wait_interval: 5000  # 5 seconds between retries
+      - "${BRADBURY_PRIVATE_KEY_1}"
+      - "${BRADBURY_PRIVATE_KEY_2}"
+      - "${BRADBURY_PRIVATE_KEY_3}"
+    from: "${BRADBURY_PRIVATE_KEY_1}"  # Optional: default account
   
-# Logging
+  studionet:
+    # Pre-configured - no accounts needed
+    pass
+
+  localnet:
+    # Pre-configured - auto-generates accounts
+    pass
+
+# Set Bradbury as default
+default_network: testnet_bradbury
+
+# Keep your existing settings
+test:
+  timeout: 120000
+  retries: 3
+  wait_interval: 5000
+
 logging:
   level: info
   format: pretty
   output: stdout
 
-# Direct Mode settings
 direct_mode:
-  # Enable strict mocks to catch unused patterns
   strict_mocks: true
-  # Enable pickling checks to catch serialization issues
   check_pickling: true

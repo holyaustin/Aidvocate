@@ -1,10 +1,9 @@
-// frontend/lib/hooks/useAidvocate.ts
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Aidvocate } from "../contracts/Aidvocate";
-import { getContractAddress, getStudioUrl } from "../genlayer/client";
+import { getContractAddress, getTestnetUrl } from "../genlayer/client";
 import { useWallet } from "../genlayer/wallet";
 import { toast } from "sonner";
 import type { Dispute, Evidence, ContractStats, LeaderboardEntry } from "../contracts/types";
@@ -15,7 +14,7 @@ import type { Dispute, Evidence, ContractStats, LeaderboardEntry } from "../cont
 export function useAidvocateContract(): Aidvocate | null {
   const { address } = useWallet();
   const contractAddress = getContractAddress();
-  const rpcUrl = getStudioUrl();
+  const rpcUrl = getTestnetUrl();
 
   const contract = useMemo(() => {
     if (!contractAddress) {
@@ -63,18 +62,49 @@ export function useEvidence(disputeId: string | null) {
 }
 
 /**
- * Hook to fetch disputes by party
+ * DISABLED: Hook to fetch disputes by party - contract has bug with DynArray
+ * Use useDisputesFromStorage instead
  */
-export function useDisputesByParty(address: string | null) {
-  const contract = useAidvocateContract();
+// export function useDisputesByParty(address: string | null) {
+//   const contract = useAidvocateContract();
+//
+//   return useQuery<Dispute[], Error>({
+//     queryKey: ["disputes", address],
+//     queryFn: () => {
+//       if (!contract || !address) return Promise.resolve([]);
+//       return contract.getDisputesByParty(address);
+//     },
+//     enabled: !!contract && !!address,
+//     staleTime: 2000,
+//   });
+// }
 
+/**
+ * NEW: Hook to fetch disputes from localStorage (workaround for contract bug)
+ */
+export function useDisputesFromStorage(address: string | null) {
   return useQuery<Dispute[], Error>({
-    queryKey: ["disputes", address],
-    queryFn: () => {
-      if (!contract || !address) return Promise.resolve([]);
-      return contract.getDisputesByParty(address);
+    queryKey: ["disputes", address, "storage"],
+    queryFn: async () => {
+      if (!address) return [];
+      
+      try {
+        // Get dispute IDs from localStorage
+        const storedIds = localStorage.getItem('myDisputes');
+        if (!storedIds) return [];
+        
+        const disputeIds = JSON.parse(storedIds);
+        if (!disputeIds.length) return [];
+        
+        // We need the contract to fetch each dispute
+        // This will be handled in the component that uses this hook
+        return [];
+      } catch (error) {
+        console.error("Error reading from localStorage:", error);
+        return [];
+      }
     },
-    enabled: !!contract && !!address,
+    enabled: !!address,
     staleTime: 2000,
   });
 }
