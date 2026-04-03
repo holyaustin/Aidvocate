@@ -234,16 +234,16 @@
   }
 
   /* Brand Button Styles - Primary (Purple Gradient) */
-  .btn-primary {
-    padding: 0.5rem 1rem;
-    border-radius: 0.5rem;
-    background: linear-gradient(135deg, oklch(0.65 0.22 300) 0%, oklch(0.78 0.18 330) 100%);
-    color: oklch(0.98 0 0);
-    font-weight: 500;
-    border: none;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 4px 0 oklch(0.65 0.22 300 / 0.2);
-  }
+    .btn-primary {
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      background: linear-gradient(135deg, oklch(54.147% 0.21797 28.799) 0%, oklch(43.792% 0.24437 264.731) 100%);
+      color: oklch(0.98 0 0);
+      font-weight: 500;
+      border: none;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px 0 oklch(0.65 0.22 300 / 0.2);
+    }
 
   .btn-primary:hover:not(:disabled) {
     transform: translateY(-1px);
