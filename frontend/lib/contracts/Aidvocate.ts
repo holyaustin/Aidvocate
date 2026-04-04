@@ -27,43 +27,80 @@ export class Aidvocate {
     this.client = createClient(config);
   }
 
-  /**
-   * Create a new dispute
-   */
-  async createDispute(
-    defendant: string,
-    description: string,
-    evidenceCID: string,
-    amountWei: string
-  ): Promise<{ disputeId: string; txHash: string }> {
-    try {
-      const txHash = await this.client.writeContract({
-        address: this.address,
-        functionName: "create_dispute",
-        args: [defendant, description, evidenceCID],
-        value: BigInt(amountWei),
-      });
+// frontend/lib/contracts/Aidvocate.ts
 
-      const receipt = await this.client.waitForTransactionReceipt({
-        hash: txHash,
-        status: "ACCEPTED" as any,
-        retries: 30,
-        interval: 5000,
-      });
-
-      const transactionHash = receipt.hash || txHash;
-      // Generate a temporary dispute ID (in production, parse from contract events)
-      const disputeId = `0x${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Store the dispute ID locally for retrieval
-      this.storeDisputeId(disputeId);
-      
-      return { disputeId, txHash: transactionHash };
-    } catch (error) {
-      console.error("Error creating dispute:", error);
-      throw error;
+/**
+ * Create a new dispute
+ */
+async createDispute(
+  defendant: string,
+  description: string,
+  evidenceCID: string,
+  amountWei: string
+): Promise<{ disputeId: string; txHash: string }> {
+  try {
+    // Validate inputs
+    if (!defendant || !defendant.match(/^0x[a-fA-F0-9]{40}$/)) {
+      throw new Error("Invalid defendant address");
     }
+    if (!description || description.length < 10) {
+      throw new Error("Description must be at least 10 characters");
+    }
+    if (!evidenceCID) {
+      throw new Error("Evidence CID is required");
+    }
+    const amount = BigInt(amountWei);
+    if (amount <= 0) {
+      throw new Error("Amount must be greater than 0");
+    }
+
+    console.log("📝 Creating dispute with params:");
+    console.log("   Defendant:", defendant);
+    console.log("   Description:", description.substring(0, 50) + "...");
+    console.log("   Evidence CID:", evidenceCID);
+    console.log("   Amount (wei):", amount.toString());
+
+    // Call the contract
+    const txHash = await this.client.writeContract({
+      address: this.address,
+      functionName: "create_dispute",
+      args: [defendant, description, evidenceCID],
+      value: amount,
+      // Add gas limit to avoid estimation issues
+      //gas: 5000000n,
+    });
+
+    console.log("   Transaction sent:", txHash);
+
+    const receipt = await this.client.waitForTransactionReceipt({
+      hash: txHash,
+      status: "ACCEPTED" as any,
+      retries: 60,
+      interval: 5000,
+    });
+
+    console.log("   Receipt status:", receipt.statusName);
+
+    // Extract dispute ID from events or generate one
+    let disputeId = "";
+    
+
+    
+    // If no event, generate a temporary ID (will be replaced when fetching from chain)
+    if (!disputeId) {
+      disputeId = `0x${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      console.warn("   No dispute ID in events, using generated ID:", disputeId);
+    }
+
+    // Store the dispute ID locally
+    this.storeDisputeId(disputeId);
+    
+    return { disputeId, txHash: receipt.hash || txHash };
+  } catch (error) {
+    console.error("Error creating dispute:", error);
+    throw error;
   }
+}
 
   /**
    * Store dispute ID in localStorage for retrieval

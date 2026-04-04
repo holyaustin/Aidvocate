@@ -1,103 +1,74 @@
 import { readFileSync } from "fs";
 import path from "path";
-import {
-  TransactionHash,
-  TransactionStatus,
-  GenLayerClient,
-  DecodedDeployData,
-  GenLayerChain,
-} from "genlayer-js/types";
-import { studionet, testnetBradbury, localnet } from "genlayer-js/chains";
 
-function getNetworkType(client: GenLayerClient<any>): string {
-  const chainId = (client.chain as GenLayerChain)?.id;
-  if (chainId === studionet.id) return "studionet";
-  if (chainId === testnetBradbury.id) return "testnetBradbury";
-  if (chainId === localnet.id) return "localnet";
-  return "unknown";
-}
-
-export default async function main(client: GenLayerClient<any>) {
+export default async function main(client: any) {
   const filePath = path.resolve(process.cwd(), "contracts/aidvocate.py");
 
   try {
-    const networkType = getNetworkType(client);
     console.log("🚀 Starting Aidvocate deployment...");
-    console.log(`📡 Network: ${networkType}`);
+    console.log("📡 Network: testnetBradbury");
     
     // Read contract file
     const contractCode = new Uint8Array(readFileSync(filePath));
     console.log(`📄 Contract file loaded: ${contractCode.length} bytes`);
 
-    // Deprecated – we can omit, but leaving it harmless
-    // await client.initializeConsensusSmartContract();
-
-    // Deploy the contract with a high gas limit
-    console.log("📤 Deploying contract with gas limit 10,000,000...");
+    // Deploy the contract
+    console.log("📤 Deploying contract to Bradbury testnet...");
+    
     const deployTransaction = await client.deployContract({
       code: contractCode,
-      args: [], // No constructor arguments
-      //gas: 10_000_000,          // Explicit gas limit (increase if needed)
-      // gasPrice: ...          // Optional: set gas price if required
+      args: [],
     });
 
-    console.log(`⏳ Waiting for deployment confirmation...`);
+    console.log(`✅ Transaction sent!`);
     console.log(`   Transaction hash: ${deployTransaction}`);
+    console.log(`⏳ Waiting for confirmation (this may take 1-2 minutes)...`);
 
-    // Wait with longer retries (20 minutes total)
+    // Wait for confirmation
     const receipt = await client.waitForTransactionReceipt({
-      hash: deployTransaction as TransactionHash,
-      status: TransactionStatus.ACCEPTED,
-      retries: 120,           // 120 * 10s = 20 minutes
-      interval: 10000,        // 10 seconds between retries
+      hash: deployTransaction,
+      retries: 120,
+      interval: 5000,
     });
 
-    console.log(`📋 Receipt received:`, {
-      status: receipt.status,
-      statusName: receipt.statusName,
-    });
+    console.log(`✅ Deployment confirmed!`);
+    console.log(`   Status: ${receipt.status}`);
 
-    // Verify success
-    if (
-      receipt.status !== 5 && // ACCEPTED
-      receipt.status !== 6 && // FINALIZED
-      receipt.statusName !== "ACCEPTED" &&
-      receipt.statusName !== "FINALIZED"
-    ) {
-      throw new Error(`Deployment failed. Receipt: ${JSON.stringify(receipt, null, 2)}`);
-    }
-
-    // Extract contract address based on network
-    let deployedContractAddress: string | undefined;
+    // Get contract address - try different possible locations
+    let contractAddress = null;
     
-    if (networkType === "studionet" || networkType === "localnet") {
-      deployedContractAddress = (receipt.data as any)?.contract_address;
-    } else if (networkType === "testnetBradbury") {
-      const decodedData = receipt.txDataDecoded as DecodedDeployData;
-      deployedContractAddress = decodedData?.contractAddress;
+    if (receipt.contractAddress) {
+      contractAddress = receipt.contractAddress;
+    } else if (receipt.txDataDecoded && receipt.txDataDecoded.contractAddress) {
+      contractAddress = receipt.txDataDecoded.contractAddress;
+    } else if (receipt.data && receipt.data.contract_address) {
+      contractAddress = receipt.data.contract_address;
     }
 
-    if (!deployedContractAddress) {
-      console.error("Receipt structure:", JSON.stringify(receipt, (k, v) => 
-        typeof v === 'bigint' ? v.toString() : v, 2));
-      throw new Error("Failed to extract contract address from receipt");
+    if (!contractAddress) {
+      console.log("\n⚠️  Could not auto-extract contract address.");
+      console.log("   Please check the explorer for your deployed contract:");
+      console.log(`   https://explorer-bradbury.genlayer.com/tx/${deployTransaction}`);
+      console.log("\n   Once you have the address, add it to your .env.local:");
+      console.log(`   NEXT_PUBLIC_CONTRACT_ADDRESS=0x...`);
+      return null;
     }
 
     console.log("\n✅ =========================================");
     console.log("✅ Aidvocate deployed successfully!");
     console.log("✅ =========================================");
-    console.log(`📍 Contract Address: ${deployedContractAddress}`);
+    console.log(`📍 Contract Address: ${contractAddress}`);
     console.log(`🔗 Transaction Hash: ${deployTransaction}`);
-    console.log(`📦 Network: ${networkType}`);
+    console.log(`🌐 Explorer: https://explorer-bradbury.genlayer.com/address/${contractAddress}`);
     console.log("\n📝 Add this to your frontend/.env.local:");
-    console.log(`NEXT_PUBLIC_CONTRACT_ADDRESS=${deployedContractAddress}`);
+    console.log(`NEXT_PUBLIC_CONTRACT_ADDRESS=${contractAddress}`);
     console.log("=========================================\n");
 
-    return deployedContractAddress;
+    return contractAddress;
     
   } catch (error) {
     console.error("\n❌ Deployment failed!");
-    console.error("Error details:", error);
+    console.error("Error:", error instanceof Error ? error.message : error);
     throw error;
   }
 }

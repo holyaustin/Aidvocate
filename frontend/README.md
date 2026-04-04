@@ -10,7 +10,7 @@
 
 ## 🚀 Live Demo
 
-[View Demo Video](https://youtu.be/your-demo-link) | [Hackathon Submission](https://dorahacks.io)
+[View Demo Video](https://youtu.be/rS5yY8UjGnw) | [Hackathon Submission](https://dorahacks.io)
 
 ## ✨ Key Features
 
@@ -86,7 +86,7 @@
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/aidvocate.git
+git clone https://github.com/holyaustin/aidvocate.git
 cd aidvocate
 ```
 
@@ -240,9 +240,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📧 Contact
 
-- **Project Lead**: [Your Name](mailto:your.email@example.com)
-- **GitHub**: [@yourusername](https://github.com/yourusername)
-- **Twitter**: [@yourhandle](https://twitter.com/yourhandle)
+- **Project Video**: [Aidvocate](https://youtu.be/rS5yY8UjGnw)
+- **GitHub**: [@yourusername](https://github.com/holyaustin)
+- **Twitter**: [@yourhandle](https://twitter.com/holyaustin)
 
 ## ⚠️ Disclaimer
 

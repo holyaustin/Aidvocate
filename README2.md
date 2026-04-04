@@ -1,4 +1,14 @@
 # Sample GenLayer project
+Result:
+{
+  'Transaction Hash': '0x0298ee329627166f4aeee004fe4f066136deab77c259b9ea26364f2d75e89ea6',
+  'Contract Address': '0x71d82f5d73d08e1aFE25b5bfC4b10F75a3efeBb3'
+}
+
+✔ Contract deployed successfully.
+
+
+
 
 ✅ =========================================
 ✅ Aidvocate deployed successfully!
@@ -11,15 +21,6 @@
 NEXT_PUBLIC_CONTRACT_ADDRESS=0xf7FFa7F96a0D1c2ca5895B5eD8743A4ccd4f1Ee0
 =========================================
 
-0xFE3D11b0E7BA73953b9b99DA6850Da1eA5cDD6d1
-
-Result:
-{
-  'Transaction Hash': '0xf7a585c024633a4fb80b0df8133dc73b46e6947e56336ea66b62c159a781b2a3',
-  'Contract Address': '0x91cf75bCe02e39cCB77179764379EAF080Ae39dD'
-}
-
-✔ Contract deployed successfully.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/license/mit/)
 [![Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white)](https://discord.gg/8Jm4v89VAu)

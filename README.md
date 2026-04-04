@@ -73,6 +73,15 @@
 - **Contract Language**: Python (GenVM)
 - **Consensus**: Optimistic Democracy with AI validators
 
+## Deployed Intelligent contract 
+Result:
+{
+  'Transaction Hash': '0x0298ee329627166f4aeee004fe4f066136deab77c259b9ea26364f2d75e89ea6',
+  'Contract Address': '0x71d82f5d73d08e1aFE25b5bfC4b10F75a3efeBb3'
+}
+
+✔ Contract deployed successfully.
+
 ## 📋 Prerequisites
 
 - Node.js 18.18.0 or higher
